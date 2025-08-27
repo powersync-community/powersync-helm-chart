@@ -73,8 +73,8 @@ powersyncConfig:
       keys:
         - kty: "oct"
           alg: "HS256"
-          kid: "boschpoc"
-          k: "UNuh4zrTh2Nr-n25ffnZsf9xGFQI3RVvBe27kW56_ms"
+          kid: "testing"
+          k: "testing"
     jwks_uri:
       - "YOUR JWKS URL IF APPROPRIATE"
     jwks_reject_ip_ranges:
