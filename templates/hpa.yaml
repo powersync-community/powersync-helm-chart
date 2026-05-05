@@ -1,0 +1,48 @@
+{{- if .Values.api.autoscaling.enabled }}
+# Scales the API Deployment on the powersync_concurrent_connections gauge
+# (Pods metric — averaged across pods, target ~100/pod, hard cap 200).
+# CPU is included as a fallback signal.
+#
+# Requires the custom metric to be exposed via the custom.metrics.k8s.io API,
+# typically by deploying prometheus-adapter with a rule like:
+#   - seriesQuery: 'powersync_concurrent_connections{namespace!="",pod!=""}'
+#     resources: { overrides: { namespace: {resource: namespace}, pod: {resource: pod} } }
+#     name: { matches: "^(.*)$", as: "$1" }
+#     metricsQuery: 'avg_over_time(<<.Series>>{<<.LabelMatchers>>}[2m])'
+# Or use KEDA's prometheus scaler instead of HPA.
+apiVersion: autoscaling/v2
+kind: HorizontalPodAutoscaler
+metadata:
+  name: {{ include "powersync-helm-chart-demo.fullname" . }}-api
+  namespace: {{ .Values.namespace }}
+  labels:
+    app: {{ include "powersync-helm-chart-demo.fullname" . }}-api
+    {{- include "powersync-helm-chart-demo.labels" . | nindent 4 }}
+spec:
+  scaleTargetRef:
+    apiVersion: apps/v1
+    kind: Deployment
+    name: {{ include "powersync-helm-chart-demo.fullname" . }}-api
+  minReplicas: {{ .Values.api.autoscaling.minReplicas }}
+  maxReplicas: {{ .Values.api.autoscaling.maxReplicas }}
+  metrics:
+    - type: Pods
+      pods:
+        metric:
+          name: powersync_concurrent_connections
+        target:
+          type: AverageValue
+          averageValue: "{{ .Values.api.autoscaling.targetConnectionsPerPod }}"
+    {{- with .Values.api.autoscaling.targetCPUUtilizationPercentage }}
+    - type: Resource
+      resource:
+        name: cpu
+        target:
+          type: Utilization
+          averageUtilization: {{ . }}
+    {{- end }}
+  {{- with .Values.api.autoscaling.behavior }}
+  behavior:
+    {{- toYaml . | nindent 4 }}
+  {{- end }}
+{{- end }}

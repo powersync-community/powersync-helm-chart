@@ -1,0 +1,45 @@
+{{- if .Values.migration.enabled }}
+# Helm pre-install / pre-upgrade hook — runs `migrate up` before pods start.
+# Pair with powersyncConfig.migrations.disable_auto_migration: true so the
+# service does not try to migrate on startup.
+apiVersion: batch/v1
+kind: Job
+metadata:
+  name: {{ include "powersync-helm-chart-demo.fullname" . }}-migrate
+  namespace: {{ .Values.namespace }}
+  labels:
+    app: {{ include "powersync-helm-chart-demo.fullname" . }}-migrate
+    {{- include "powersync-helm-chart-demo.labels" . | nindent 4 }}
+  annotations:
+    "helm.sh/hook": pre-install,pre-upgrade
+    "helm.sh/hook-weight": "-5"
+    "helm.sh/hook-delete-policy": before-hook-creation,hook-succeeded
+spec:
+  backoffLimit: 2
+  template:
+    metadata:
+      labels:
+        app: {{ include "powersync-helm-chart-demo.fullname" . }}-migrate
+    spec:
+      restartPolicy: Never
+      containers:
+        - name: migrate
+          image: {{ .Values.image.repository }}:{{ .Values.image.tag }}
+          imagePullPolicy: {{ .Values.image.pullPolicy }}
+          args:
+            - migrate
+            - up
+          envFrom:
+            - configMapRef:
+                name: {{ include "powersync-helm-chart-demo.fullname" . }}-base-env
+          resources:
+            {{- toYaml .Values.migration.resources | nindent 12 }}
+          volumeMounts:
+            - mountPath: /powersync/config
+              name: config-volume
+      volumes:
+        - name: config-volume
+          secret:
+            defaultMode: 420
+            secretName: {{ include "powersync-helm-chart-demo.fullname" . }}-config
+{{- end }}

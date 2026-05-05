@@ -1,0 +1,33 @@
+{{- if .Values.api.pdb.enabled }}
+apiVersion: policy/v1
+kind: PodDisruptionBudget
+metadata:
+  name: {{ include "powersync-helm-chart-demo.fullname" . }}-api
+  namespace: {{ .Values.namespace }}
+  labels:
+    app: {{ include "powersync-helm-chart-demo.fullname" . }}-api
+    {{- include "powersync-helm-chart-demo.labels" . | nindent 4 }}
+spec:
+  minAvailable: {{ .Values.api.pdb.minAvailable }}
+  selector:
+    matchLabels:
+      app: {{ include "powersync-helm-chart-demo.fullname" . }}-api
+{{- end }}
+{{- if and .Values.replication.pdb.enabled (gt (int .Values.replication.replicas) 1) }}
+---
+# Only emitted when replicas > 1 — a PDB on a single-replica deployment would
+# block all voluntary disruptions (e.g. node drains).
+apiVersion: policy/v1
+kind: PodDisruptionBudget
+metadata:
+  name: {{ include "powersync-helm-chart-demo.fullname" . }}-replication
+  namespace: {{ .Values.namespace }}
+  labels:
+    app: {{ include "powersync-helm-chart-demo.fullname" . }}-replication
+    {{- include "powersync-helm-chart-demo.labels" . | nindent 4 }}
+spec:
+  minAvailable: {{ .Values.replication.pdb.minAvailable }}
+  selector:
+    matchLabels:
+      app: {{ include "powersync-helm-chart-demo.fullname" . }}-replication
+{{- end }}

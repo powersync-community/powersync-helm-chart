@@ -1,0 +1,42 @@
+{{- if .Values.compact.enabled }}
+apiVersion: batch/v1
+kind: CronJob
+metadata:
+  name: {{ include "powersync-helm-chart-demo.fullname" . }}-compact
+  namespace: {{ .Values.namespace }}
+  labels:
+    app: {{ include "powersync-helm-chart-demo.fullname" . }}-compact
+    {{- include "powersync-helm-chart-demo.labels" . | nindent 4 }}
+spec:
+  schedule: {{ .Values.compact.schedule | quote }}
+  concurrencyPolicy: Forbid
+  successfulJobsHistoryLimit: 3
+  failedJobsHistoryLimit: 3
+  jobTemplate:
+    spec:
+      template:
+        spec:
+          restartPolicy: OnFailure
+          containers:
+            - name: compact
+              image: {{ .Values.image.repository }}:{{ .Values.image.tag }}
+              imagePullPolicy: {{ .Values.image.pullPolicy }}
+              args:
+                - compact
+                {{- with .Values.compact.buckets }}
+                - --buckets={{ . }}
+                {{- end }}
+              envFrom:
+                - configMapRef:
+                    name: {{ include "powersync-helm-chart-demo.fullname" . }}-base-env
+              resources:
+                {{- toYaml .Values.compact.resources | nindent 16 }}
+              volumeMounts:
+                - mountPath: /powersync/config
+                  name: config-volume
+          volumes:
+            - name: config-volume
+              secret:
+                defaultMode: 420
+                secretName: {{ include "powersync-helm-chart-demo.fullname" . }}-config
+{{- end }}

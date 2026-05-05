@@ -1,0 +1,32 @@
+{{- if .Values.networkPolicy.enabled }}
+# Allow traffic from the ingress controller to the API pods.
+# Replication, compact, and migrate pods stay cluster-internal — no public ingress.
+apiVersion: networking.k8s.io/v1
+kind: NetworkPolicy
+metadata:
+  name: {{ include "powersync-helm-chart-demo.fullname" . }}-api
+  namespace: {{ .Values.namespace }}
+  labels:
+    app: {{ include "powersync-helm-chart-demo.fullname" . }}-api
+    {{- include "powersync-helm-chart-demo.labels" . | nindent 4 }}
+spec:
+  podSelector:
+    matchLabels:
+      app: {{ include "powersync-helm-chart-demo.fullname" . }}-api
+  policyTypes:
+    - Ingress
+  ingress:
+    - from:
+        - namespaceSelector:
+            matchLabels:
+              kubernetes.io/metadata.name: ingress-nginx
+      ports:
+        - port: 8080
+          protocol: TCP
+    # Allow Prometheus scraping of /metrics. Adjust selectors to match your cluster.
+    - from:
+        - namespaceSelector: {}
+      ports:
+        - port: 9464
+          protocol: TCP
+{{- end }}

@@ -4,7 +4,7 @@ namespace: powersync-poc
 # Image settings
 image:
   repository: journeyapps/powersync-service
-  tag: "1.4.0"
+  tag: "1.20.5"
   pullPolicy: IfNotPresent
 
 # API deployment settings
@@ -13,22 +13,94 @@ api:
   resources:
     limits:
       cpu: "1"
-      memory: 360Mi
+      memory: 2Gi
     requests:
-      cpu: 100m
-      memory: 360Mi
-  nodeOptions: "--max-old-space-size=330"
+      cpu: "1"
+      memory: 1Gi
+  # Sized as a percentage of container memory so it tracks resources.limits.memory.
+  nodeOptions: "--max-old-space-size-percentage=80"
+  # Horizontal Pod Autoscaler.
+  # Scales on the powersync_concurrent_connections Prometheus metric
+  # (target: ~100 concurrent client connections per pod, hard cap 200).
+  # Requires prometheus-adapter (or KEDA) to expose the metric to the
+  # custom.metrics.k8s.io API. See README for setup.
+  autoscaling:
+    enabled: false
+    minReplicas: 2
+    maxReplicas: 10
+    targetConnectionsPerPod: 100
+    targetCPUUtilizationPercentage: 70
+    behavior:
+      scaleDown:
+        stabilizationWindowSeconds: 300
+      scaleUp:
+        stabilizationWindowSeconds: 60
+  # PodDisruptionBudget — keep at least 1 API pod available during voluntary disruptions.
+  pdb:
+    enabled: true
+    minAvailable: 1
 
 # Replication deployment settings
 replication:
+  # Warm-standby pattern: run 2 replication pods. Only one actively replicates
+  # (holds the sync-rules lock); the other waits and takes over instantly if the
+  # leader dies. Mirrors the PowerSync Cloud pattern for paid plans.
+  # Set to 1 if running an older PowerSync service (< powersync-service PR #467,
+  # ~2026-01-29) where the standby pod logs PSYNC_S1003 noisily.
+  replicas: 2
+  resources:
+    limits:
+      cpu: "1"
+      memory: 2Gi
+    requests:
+      cpu: "1"
+      memory: 1Gi
+  nodeOptions: "--max-old-space-size-percentage=80"
+  # Update strategy. RollingUpdate is safe with replicas >= 2 because the
+  # standby pod just waits for the lock. With replicas: 1, override to Recreate
+  # to avoid two pods overlapping briefly during rollout.
+  strategy:
+    type: RollingUpdate
+    rollingUpdate:
+      maxSurge: 1
+      maxUnavailable: 0
+  # PDB — keep at least 1 replication pod available during voluntary disruptions.
+  pdb:
+    enabled: true
+    minAvailable: 1
+  # Spread replication pods across nodes (soft preference — single-node clusters still schedule).
+  podAntiAffinity:
+    enabled: true
+
+# Compact CronJob — daily compaction of bucket storage.
+compact:
+  enabled: true
+  schedule: "0 3 * * *"
+  # Optional bucket filter; leave empty to compact all buckets.
+  buckets: ""
+  resources:
+    limits:
+      cpu: "1"
+      memory: 1Gi
+    requests:
+      cpu: 100m
+      memory: 512Mi
+
+# Migration Job — runs `migrate up` as a Helm pre-install/pre-upgrade hook.
+# Requires powersyncConfig.migrations.disable_auto_migration: true.
+migration:
+  enabled: true
   resources:
     limits:
       cpu: "1"
       memory: 512Mi
     requests:
       cpu: 100m
-      memory: 512Mi
-  nodeOptions: "--max-old-space-size=482"
+      memory: 256Mi
+
+# NetworkPolicy — restrict ingress to the API pods.
+networkPolicy:
+  enabled: false
 
 # Service settings
 service:
@@ -39,6 +111,12 @@ ingress:
   enabled: true
   className: ingress-nginx
   host: YOUR_FQDN_HERE.example.com
+  # NGINX annotations required for PowerSync HTTP streaming sync.
+  # Without proxy-buffering: off, the sync stream breaks.
+  annotations:
+    nginx.ingress.kubernetes.io/proxy-buffering: "off"
+    nginx.ingress.kubernetes.io/proxy-read-timeout: "3600"
+    nginx.ingress.kubernetes.io/proxy-send-timeout: "3600"
   tls:
     enabled: true
     secretName: your-certificate-secret
@@ -101,7 +179,7 @@ syncRules:
     bucket_definitions:
       global:
         data:
-          # mongodb uses _id as the primary key. * excludes _ fields. 
+          # mongodb uses _id as the primary key. * excludes _ fields.
           - select _id as id, * from lists
           - select _id as id, * from todos
 

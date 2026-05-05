@@ -6,7 +6,6 @@ metadata:
 data:
   sync_rules.yaml: |-
     {{ .Values.syncRules.data | nindent 4 }}
-immutable: true
 ---
 apiVersion: v1
 kind: ConfigMap
@@ -17,4 +16,3 @@ data:
   {{- range $key, $value := .Values.env }}
   {{ $key }}: {{ $value | quote }}
   {{- end }}
-immutable: true
