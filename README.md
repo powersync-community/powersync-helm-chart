@@ -5,7 +5,7 @@ This Helm chart deploys [PowerSync](https://www.powersync.com/) services on a Ku
 ## Prerequisites
 
 - Kubernetes 1.21+
-- Helm 3.0+
+- Helm 3.0+ (Helm 4 also supported and verified by the local test pipeline — see [Local testing](#local-testing))
 - A bucket-storage database (MongoDB or Postgres) and a source database
 - An NGINX-compatible Ingress controller (or any L7 controller with HTTP/2 + WebSockets)
 - For autoscaling on `powersync_concurrent_connections`: Prometheus + [prometheus-adapter](https://github.com/kubernetes-sigs/prometheus-adapter), or [KEDA](https://keda.sh/)
@@ -194,6 +194,88 @@ The chart's example `client_auth.jwks` uses a shared-secret HS256 key for demo p
 | `migration.enabled` | Run migrate-up as a Helm hook | `true` |
 | `networkPolicy.enabled` | Restrict API ingress | `false` |
 | `ingress.host` | Ingress hostname | `YOUR_FQDN_HERE.example.com` |
+
+## Local testing
+
+The repo ships with a self-contained pipeline that lints and renders the chart, deploys it to a local [kind](https://kind.sigs.k8s.io/) cluster against in-cluster MongoDB fixtures, and runs assertions against the result. Use it before any chart change.
+
+### Requirements
+
+| Tool | Purpose | Install |
+|---|---|---|
+| `helm` (v4+) | Chart lint/render/install | `brew install helm` |
+| `kind` | Local Kubernetes cluster | `brew install kind` |
+| `kubectl` | Cluster client | `brew install kubernetes-cli` |
+| `kubeconform` | K8s schema validation | `brew install kubeconform` |
+| `yq` | YAML parsing | `brew install yq` |
+| `jq` | JSON parsing | usually preinstalled |
+| Docker | Container runtime for kind | Docker Desktop / OrbStack |
+
+One-liner:
+
+```bash
+brew install helm kind kubernetes-cli kubeconform yq jq
+```
+
+### Quick start
+
+```bash
+./test/setup-fixtures.sh   # idempotent — kind + ingress-nginx + 2× MongoDB + TLS secret (~3 min)
+./test/run.sh --audit      # full pipeline with evidence per assertion
+./test/teardown.sh         # delete the kind cluster when finished
+```
+
+### What runs
+
+| Stage | What it does |
+|---|---|
+| **Static** | `helm lint`, `helm template -f test/values-test.yaml`, `kubeconform -strict` on the rendered manifests |
+| **Deploy** | `helm upgrade --install` against the kind cluster, waits for rollout, captures pod state on failure |
+| **Smoke** | Runs every assertion declared in `test/assertions.yaml` (deployment readiness, file probes, listening ports, migrate Job success, replication leader election, initial replication + streaming, kubeconform, built-in `helm test`) |
+
+### Run modes
+
+```bash
+./test/run.sh                  # quiet PASS/FAIL summary
+./test/run.sh --audit          # verbose evidence per assertion
+./test/run.sh --only=static    # static stage only (no cluster needed)
+./test/run.sh --only=smoke     # re-check assertions against the current install
+./test/run.sh --self-test      # failure-injection battery — proves the pipeline catches what it claims
+```
+
+`--self-test` runs each scenario in `test/injections/*.yaml` in an isolated git worktree and confirms the right stage/assertion catches each break (template typo, bad memory limit, mismatched ConfigMap name, bad source-DB URI, wrong migrate args, renamed metrics port, bad image tag).
+
+### Inspect after a run
+
+Every run dumps evidence to `test/.last-run/` (gitignored):
+
+```
+test/.last-run/
+├── stages/                          # structured JSON per stage
+│   ├── 1-static.json
+│   ├── 2-deploy.json
+│   └── 3-smoke.json
+├── rendered/all.yaml                # helm template output
+├── events.log                       # cluster events
+├── workload.summary                 # pods/deploys/jobs + leader/standby IDs
+└── pods/
+    ├── api/                         # one log file per API replica
+    ├── migrate.log                  # pre-install Job
+    ├── replication-leader.log       # active replicator (initial sync, streaming, resume tokens)
+    └── replication-standby.log      # idle warm standby (PSYNC_S1003 lock contention)
+```
+
+Useful greps:
+
+```bash
+grep -E 'locked for replication|Initial replication|Resume streaming|Idle change stream' test/.last-run/pods/replication-leader.log
+grep PSYNC_S1003 test/.last-run/pods/replication-standby.log
+jq '.checks[] | select(.ok==false)' test/.last-run/stages/3-smoke.json
+```
+
+### Adding a new assertion
+
+`test/assertions.yaml` is the single source of truth for what the smoke stage tests. Append an entry; the smoke runner picks it up on the next run. Supported types: `kubectl` (jsonpath), `kubectl-exec` (cmd in pod), `log-grep` (pattern + match count), `kubeconform`, `helm-test`.
 
 ## Troubleshooting
 
