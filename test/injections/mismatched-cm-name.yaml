@@ -1,0 +1,8 @@
+id: mismatched-cm-name
+description: Rename the sync-streams ConfigMap without updating the volume reference; pods stuck ContainerCreating.
+expected_stage: deploy
+expected_assertion: ""
+patch:
+  - file: templates/configmaps.yaml
+    find: "{{ include \"powersync-helm-chart-demo.fullname\" . }}-sync-streams"
+    replace: "{{ include \"powersync-helm-chart-demo.fullname\" . }}-sync-streams-renamed"

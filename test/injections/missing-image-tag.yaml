@@ -1,0 +1,8 @@
+id: missing-image-tag
+description: Use an image tag that does not exist; deploy stage must fail with ImagePullBackOff.
+expected_stage: deploy
+expected_assertion: ""
+patch:
+  - file: test/values-test.yaml
+    find: "  tag: \"1.20.5\""
+    replace: "  tag: \"does-not-exist-99.99.99\""

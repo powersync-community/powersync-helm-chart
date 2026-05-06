@@ -1,0 +1,8 @@
+id: bad-mongo-uri
+description: Point bucket-storage at a non-existent host; migrate Job must fail.
+expected_stage: deploy
+expected_assertion: ""
+patch:
+  - file: test/values-test.yaml
+    find: "uri: \"mongodb://mongo-storage-mongodb-headless.powersync-test.svc.cluster.local:27017/?replicaSet=rs0\""
+    replace: "uri: \"mongodb://nope.invalid:27017/?replicaSet=rs0\""

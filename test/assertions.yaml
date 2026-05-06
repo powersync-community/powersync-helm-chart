@@ -1,0 +1,121 @@
+# Declarative test surface. Every check the smoke stage runs is listed here.
+# The smoke runner cannot test anything not declared in this file.
+#
+# Schema:
+#   id           — unique identifier
+#   description  — human-readable summary
+#   type         — one of: http | kubectl | log-grep | helm-test
+#   target       — what to query (svc/<name>:<port><path>, pod/<labelSel>:<port><path>, job/<name>, deploy/<name>)
+#   expect       — pass condition (varies by type)
+#
+# Defaults: namespace=powersync-test, release=powersync.
+
+defaults:
+  namespace: powersync-test
+  release: powersync
+
+assertions:
+  - id: api-deployment-ready
+    description: API Deployment has all replicas available
+    type: kubectl
+    target: deployment/powersync-api
+    expect:
+      jsonpath: ".status.availableReplicas"
+      gte: 1
+
+  - id: replication-deployment-ready
+    description: Replication Deployment has all replicas available
+    type: kubectl
+    target: deployment/powersync-replication
+    expect:
+      jsonpath: ".status.availableReplicas"
+      gte: 1
+
+  - id: api-probe-startup
+    description: API startup probe file is present (fs probe via exec)
+    type: kubectl-exec
+    target: deployment/powersync-api
+    command: ["cat", "/app/.probes/startup"]
+    expect:
+      exit_code: 0
+
+  - id: api-probe-liveness
+    description: API liveness probe file is present
+    type: kubectl-exec
+    target: deployment/powersync-api
+    command: ["cat", "/app/.probes/poll"]
+    expect:
+      exit_code: 0
+
+  - id: api-probe-readiness
+    description: API readiness probe file is present
+    type: kubectl-exec
+    target: deployment/powersync-api
+    command: ["cat", "/app/.probes/ready"]
+    expect:
+      exit_code: 0
+
+  - id: api-metrics-port-listening
+    description: API pod is listening on metrics port 9464 (hex 24F8)
+    type: kubectl-exec
+    target: deployment/powersync-api
+    # grep for port 24F8 in LISTEN state (0A) in /proc/net/tcp
+    command: ["sh", "-c", "grep -E ':24F8 [0-9A-F:]+ 0A' /proc/net/tcp /proc/net/tcp6 2>/dev/null"]
+    expect:
+      exit_code: 0
+
+  - id: api-http-port-listening
+    description: API pod is listening on HTTP port 8080 (hex 1F90)
+    type: kubectl-exec
+    target: deployment/powersync-api
+    command: ["sh", "-c", "grep -E ':1F90 [0-9A-F:]+ 0A' /proc/net/tcp /proc/net/tcp6 2>/dev/null"]
+    expect:
+      exit_code: 0
+
+  - id: migrate-job-succeeded
+    description: Pre-install migrate Job ran to completion
+    type: kubectl
+    target: job/powersync-migrate
+    expect:
+      jsonpath: ".status.succeeded"
+      equals: 1
+
+  - id: replication-engine-started
+    description: At least one replication pod has booted the replication engine
+    type: log-grep
+    target: deployment/powersync-replication
+    pattern: "Successfully started Replication Engine"
+    expect:
+      matches_count_gte: 1
+
+  - id: replication-streaming
+    description: Leader has finished initial replication and is now streaming source-DB changes
+    type: log-grep
+    target: deployment/powersync-replication
+    # Service-emitted markers — `Initial replication done` (first run) or
+    # `Initial replication already done` (re-run), followed by streaming.
+    pattern: "(Initial replication done|Initial replication already done|Resume streaming|Idle change stream)"
+    expect:
+      matches_count_gte: 1
+
+  - id: api-no-fatal-errors
+    description: API pods have no FATAL or PSYNC_S2304 errors at startup
+    type: log-grep
+    target: deployment/powersync-api
+    pattern: "(FATAL|PSYNC_S2304)"
+    expect:
+      matches_count: 0
+
+  - id: rendered-manifests-valid
+    description: Rendered manifests pass kubeconform schema validation
+    type: kubeconform
+    target: rendered/all.yaml
+    expect:
+      exit_code: 0
+
+  - id: helm-test-connection
+    description: Built-in helm test (templates/tests/test-connection.yaml) passes
+    type: helm-test
+    target: powersync
+    expect:
+      exit_code: 0

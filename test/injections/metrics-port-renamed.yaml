@@ -1,0 +1,8 @@
+id: metrics-port-renamed
+description: Change the metrics container port number; smoke must fail because nothing listens on 9464.
+expected_stage: smoke
+expected_assertion: api-metrics-port-listening
+patch:
+  - file: templates/deployments.yaml
+    find: "- containerPort: 9464\n              name: metrics"
+    replace: "- containerPort: 9465\n              name: metrics"

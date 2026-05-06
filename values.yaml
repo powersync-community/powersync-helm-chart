@@ -167,6 +167,9 @@ powersyncConfig:
     path: "/powersync/sync/streams.yaml"
     exit_on_error: false
   telemetry:
+    # Required for Prometheus metrics on :9464 (HPA, alerting, scaping). Without this
+    # the exporter is not started even though the deployment exposes the port.
+    prometheus_port: 9464
     disable_telemetry_sharing: false
   parameters:
     custom-write-checkpoints: false

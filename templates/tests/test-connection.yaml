@@ -11,8 +11,13 @@ spec:
   containers:
     - name: wget
       image: busybox
+      # The Service exposes port 80 (mapped to container port 8080). Hit any path —
+      # exit code 0 means the API is at least answering HTTP.
       command: ['wget']
-      # args: ['{{ include "powersync-helm-chart-demo.fullname" . }}:{{ .Values.service.port }}']
       args:
-        - {{ printf "%s:%d" (include "powersync-helm-chart-demo.fullname" .) (int .Values.powersyncConfig.port) }}
+        - "-q"
+        - "-O-"
+        - "--tries=1"
+        - "--timeout=10"
+        - {{ printf "http://%s/probes/liveness" (include "powersync-helm-chart-demo.fullname" .) | quote }}
   restartPolicy: Never

@@ -21,3 +21,8 @@
 .idea/
 *.tmproj
 .vscode/
+# Local test harness and agent definitions — not part of the published chart.
+test/
+.claude/
+SPECS.md
+/.last-run/

@@ -1,0 +1,8 @@
+id: template-typo
+description: Reference an undefined values key in a template; render must fail.
+expected_stage: static
+expected_assertion: ""
+patch:
+  - file: templates/deployments.yaml
+    find: "image: {{ .Values.image.repository }}:{{ .Values.image.tag }}"
+    replace: "image: {{ .Values.bogusKey }}"

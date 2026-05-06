@@ -1,0 +1,8 @@
+id: wrong-migrate-args
+description: Replace `migrate up` with `migrate down` in the migration Job; smoke must fail on migrate-job-succeeded.
+expected_stage: smoke
+expected_assertion: migrate-job-succeeded
+patch:
+  - file: templates/job-migration.yaml
+    find: "- up"
+    replace: "- down"

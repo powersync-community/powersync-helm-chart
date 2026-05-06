@@ -1,0 +1,114 @@
+# Local test overrides.
+# Wired to in-cluster MongoDB fixtures created by test/setup-fixtures.sh.
+# Do NOT use for any non-local install — credentials and JWKS keys are not secrets.
+
+namespace: powersync-test
+
+# Force a clean fullname so resource names are predictable: powersync-api, powersync-replication, etc.
+fullnameOverride: powersync
+
+image:
+  repository: journeyapps/powersync-service
+  tag: "1.20.5"
+  pullPolicy: IfNotPresent
+
+api:
+  replicas: 2
+  autoscaling:
+    enabled: false
+  pdb:
+    enabled: true
+    minAvailable: 1
+
+replication:
+  replicas: 2
+  pdb:
+    enabled: true
+    minAvailable: 1
+  podAntiAffinity:
+    enabled: false
+
+compact:
+  enabled: false
+
+migration:
+  enabled: true
+
+networkPolicy:
+  enabled: false
+
+ingress:
+  enabled: true
+  className: nginx
+  host: powersync.test.local
+  annotations:
+    nginx.ingress.kubernetes.io/proxy-buffering: "off"
+    nginx.ingress.kubernetes.io/proxy-read-timeout: "3600"
+    nginx.ingress.kubernetes.io/proxy-send-timeout: "3600"
+  tls:
+    enabled: false
+    secretName: ""
+
+powersyncConfig:
+  storage:
+    type: "mongodb"
+    uri: "mongodb://mongo-storage-mongodb-headless.powersync-test.svc.cluster.local:27017/?replicaSet=rs0"
+    username: "root"
+    password: "test"
+    database: "powersync"
+  replication:
+    connections:
+      - type: "mongodb"
+        uri: "mongodb://mongo-source-mongodb-headless.powersync-test.svc.cluster.local:27017/?replicaSet=rs0"
+        database: "powersync_demo_source"
+        username: "root"
+        password: "test"
+        tag: "default"
+        post_images: "off"
+  dev:
+    demo_auth: false
+  api:
+    tokens:
+      - "test-token-do-not-use-in-production"
+  client_auth:
+    jwks:
+      keys:
+        - kty: "oct"
+          alg: "HS256"
+          kid: "test-key"
+          k: "dGVzdC1qd2tzLWtleS1mb3ItbG9jYWwtdGVzdGluZy1vbmx5"
+    jwks_uri: []
+    supabase: false
+    audience:
+      - "https://powersync.test.local"
+  migrations:
+    disable_auto_migration: true
+  port: 8080
+  sync_config:
+    path: "/powersync/sync/streams.yaml"
+    exit_on_error: false
+  telemetry:
+    prometheus_port: 9464
+    disable_telemetry_sharing: true
+  parameters:
+    custom-write-checkpoints: false
+
+syncStreams:
+  data: |-
+    config:
+      edition: 3
+
+    streams:
+      global:
+        auto_subscribe: true
+        queries:
+          - SELECT _id AS id, * FROM lists
+          - SELECT _id AS id, * FROM todos
+
+env:
+  LOG_FORMAT: "json"
+  METRICS_PORT: "9464"
+  MICRO_ENVIRONMENT_NAME: "test"
+  MICRO_PROBE_TYPE: "fs"
+  MICRO_SERVICE_NAME: "powersync"
+  POWERSYNC_CONFIG_PATH: "/powersync/config/config.json"
