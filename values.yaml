@@ -43,7 +43,7 @@ api:
 # Replication deployment settings
 replication:
   # Warm-standby pattern: run 2 replication pods. Only one actively replicates
-  # (holds the sync-rules lock); the other waits and takes over instantly if the
+  # (holds the replication lock); the other waits and takes over instantly if the
   # leader dies. Mirrors the PowerSync Cloud pattern for paid plans.
   # Set to 1 if running an older PowerSync service (< powersync-service PR #467,
   # ~2026-01-29) where the standby pod logs PSYNC_S1003 noisily.
@@ -163,25 +163,28 @@ powersyncConfig:
   migrations:
     disable_auto_migration: true
   port: 8080
-  sync_rules:
-    path: "/powersync/sync_rules/sync_rules.yaml"
+  sync_config:
+    path: "/powersync/sync/streams.yaml"
     exit_on_error: false
   telemetry:
     disable_telemetry_sharing: false
   parameters:
     custom-write-checkpoints: false
 
-# Sync Rules
-syncRules:
+# Sync Streams — defines what data is synced to each client.
+# See the docs: https://docs.powersync.com/sync/streams/overview
+syncStreams:
   data: |-
-    # Define sync rules to control which data is synced to each user
-    # See the docs: https://docs.powersync.com/usage/sync-rules
-    bucket_definitions:
+    config:
+      edition: 3
+
+    streams:
       global:
-        data:
-          # mongodb uses _id as the primary key. * excludes _ fields.
-          - select _id as id, * from lists
-          - select _id as id, * from todos
+        auto_subscribe: true
+        # mongodb uses _id as the primary key. * excludes _ fields.
+        queries:
+          - SELECT _id AS id, * FROM lists
+          - SELECT _id AS id, * FROM todos
 
 # Environment variables
 env:

@@ -8,7 +8,7 @@ metadata:
   namespace: {{ .Values.namespace }}
 spec:
   # Warm-standby: replicas: 2 runs an active replicator + a standby that waits
-  # for the sync-rules lock. Only one actively replicates at any time. Older
+  # for the replication lock. Only one actively replicates at any time. Older
   # service versions log PSYNC_S1003 noisily on the standby — set replicas: 1
   # and strategy: Recreate in those cases.
   replicas: {{ .Values.replication.replicas }}
@@ -95,8 +95,8 @@ spec:
           volumeMounts:
             - mountPath: /powersync/config
               name: config-volume
-            - mountPath: /powersync/sync_rules
-              name: sync-rules-volume
+            - mountPath: /powersync/sync
+              name: sync-streams-volume
       volumes:
         - name: config-volume
           secret:
@@ -104,8 +104,8 @@ spec:
             secretName: {{ include "powersync-helm-chart-demo.fullname" . }}-config
         - configMap:
             defaultMode: 420
-            name: {{ include "powersync-helm-chart-demo.fullname" . }}-sync-rules
-          name: sync-rules-volume
+            name: {{ include "powersync-helm-chart-demo.fullname" . }}-sync-streams
+          name: sync-streams-volume
 ---
 apiVersion: apps/v1
 kind: Deployment

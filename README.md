@@ -25,11 +25,11 @@ helm install powersync ./powersync-helm-chart -f my-values.yaml
 | Workload | Kind | Notes |
 |---|---|---|
 | `*-api` | Deployment | Sync API. Behind a Service + Ingress. HPA + PDB. |
-| `*-replication` | Deployment | **Warm-standby (2 replicas)** — only one actively replicates; the other waits for the sync-rules lock and takes over on failure. PDB + anti-affinity included. |
+| `*-replication` | Deployment | **Warm-standby (2 replicas)** — only one actively replicates; the other waits for the replication lock and takes over on failure. PDB + anti-affinity included. |
 | `*-compact` | CronJob | Daily bucket-storage compaction. |
 | `*-migrate` | Job | Pre-install/pre-upgrade hook running `migrate up`. |
 | `*-config` | Secret | Renders `powersyncConfig` to JSON. |
-| `*-sync-rules` | ConfigMap | Sync rule definitions. |
+| `*-sync-streams` | ConfigMap | Sync Stream definitions (edition 3 sync config). |
 | `*` Ingress | Ingress | TLS + NGINX streaming annotations. |
 | `*-api` HPA | HPA | Scales on `powersync_concurrent_connections` + CPU. |
 | `*-api` PDB | PodDisruptionBudget | `minAvailable: 1`. |
