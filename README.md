@@ -105,7 +105,7 @@ Exposed on container port `9464`. Enable in `powersyncConfig.telemetry`. Key met
 
 | From | To | Protocol | Why |
 |---|---|---|---|
-| Client | Ingress → API | HTTPS (long-lived) | Sync stream — needs `proxy-buffering: off` |
+| Client | Ingress → API | HTTPS (long-lived) | Streaming API — needs `proxy-buffering: off` |
 | API pods | Bucket-storage DB | TCP | Read materialised buckets |
 | API pods | JWKS endpoint | HTTPS (egress) | Verify client JWTs |
 | Replication pod | Source DB | TCP (logical replication / oplog) | CDC stream |
