@@ -74,7 +74,7 @@ This chart deploys one instance; for multi-instance, install the chart multiple 
 
 ### Health probe endpoints
 
-Defaults use file-system probes (`MICRO_PROBE_TYPE=fs`, reading `/app/.probes/{startup,poll,ready}`). HTTP equivalents are also available on port 8080:
+Defaults use file-system probes (`MICRO_PROBE_TYPE=fs`, reading `/app/.probes/{startup,poll,ready}`). Set `env.MICRO_PROBE_TYPE` to `http` to switch startup, liveness and readiness probes on both API and replication pods to HTTP on `powersyncConfig.port` (default `8080`):
 
 | Probe | HTTP path | File path |
 |---|---|---|
@@ -82,7 +82,12 @@ Defaults use file-system probes (`MICRO_PROBE_TYPE=fs`, reading `/app/.probes/{s
 | Liveness | `GET /probes/liveness` | `/app/.probes/poll` |
 | Readiness | `GET /probes/readiness` | `/app/.probes/ready` |
 
-To switch to HTTP probes, set `env.MICRO_PROBE_TYPE: "http"` and edit the deployment templates.
+```yaml
+env:
+  MICRO_PROBE_TYPE: "http" # Use "fs" to switch back to filesystem probes.
+```
+
+In HTTP mode the chart enables `healthcheck.probes.use_http` in the rendered PowerSync config, including on replication pods. Other health-check settings are preserved. Filesystem mode leaves the service config unchanged, retaining PowerSync's default filesystem probes. Probe timings are the same in both modes. Unsupported probe types fail Helm rendering.
 
 ### Prometheus metrics
 

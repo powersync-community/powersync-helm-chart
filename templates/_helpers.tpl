@@ -75,3 +75,26 @@ Optional: Helm release annotations (used by Helm, Argo CD, etc.)
 meta.helm.sh/release-name: {{ .Release.Name }}
 meta.helm.sh/release-namespace: {{ .Release.Namespace }}
 {{- end }}
+
+{{/* Select and validate the shared Kubernetes and service probe mode. */}}
+{{- define "powersync-helm-chart-demo.probeType" -}}
+{{- $type := .Values.env.MICRO_PROBE_TYPE | default "fs" -}}
+{{- if not (has $type (list "fs" "http")) -}}
+{{- fail "env.MICRO_PROBE_TYPE must be fs or http" -}}
+{{- end -}}
+{{- $type -}}
+{{- end -}}
+
+{{/* Probe handler shared by the API and replication deployments. */}}
+{{- define "powersync-helm-chart-demo.probeHandler" -}}
+{{- if eq (include "powersync-helm-chart-demo.probeType" .root) "http" }}
+httpGet:
+  path: /probes/{{ .httpPath }}
+  port: {{ .root.Values.powersyncConfig.port | default 8080 }}
+{{- else }}
+exec:
+  command:
+    - cat
+    - /app/.probes/{{ .file }}
+{{- end }}
+{{- end -}}

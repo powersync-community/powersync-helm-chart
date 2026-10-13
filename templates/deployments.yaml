@@ -56,10 +56,7 @@ spec:
                   - -c
                   - sleep 5
           livenessProbe:
-            exec:
-              command:
-                - cat
-                - /app/.probes/poll
+            {{- include "powersync-helm-chart-demo.probeHandler" (dict "root" . "file" "poll" "httpPath" "liveness") | nindent 12 }}
             failureThreshold: 5
             initialDelaySeconds: 5
             periodSeconds: 10
@@ -71,10 +68,7 @@ spec:
               name: metrics
               protocol: TCP
           readinessProbe:
-            exec:
-              command:
-                - cat
-                - /app/.probes/ready
+            {{- include "powersync-helm-chart-demo.probeHandler" (dict "root" . "file" "ready" "httpPath" "readiness") | nindent 12 }}
             failureThreshold: 5
             initialDelaySeconds: 5
             periodSeconds: 10
@@ -83,10 +77,7 @@ spec:
           resources:
             {{- toYaml .Values.replication.resources | nindent 12 }}
           startupProbe:
-            exec:
-              command:
-                - cat
-                - /app/.probes/startup
+            {{- include "powersync-helm-chart-demo.probeHandler" (dict "root" . "file" "startup" "httpPath" "startup") | nindent 12 }}
             failureThreshold: 200
             initialDelaySeconds: 1
             periodSeconds: 1
@@ -155,10 +146,7 @@ spec:
                   - -c
                   - sleep 5
           livenessProbe:
-            exec:
-              command:
-                - cat
-                - /app/.probes/poll
+            {{- include "powersync-helm-chart-demo.probeHandler" (dict "root" . "file" "poll" "httpPath" "liveness") | nindent 12 }}
             failureThreshold: 5
             initialDelaySeconds: 5
             periodSeconds: 10
@@ -173,10 +161,7 @@ spec:
               name: metrics
               protocol: TCP
           readinessProbe:
-            exec:
-              command:
-                - cat
-                - /app/.probes/ready
+            {{- include "powersync-helm-chart-demo.probeHandler" (dict "root" . "file" "ready" "httpPath" "readiness") | nindent 12 }}
             failureThreshold: 5
             initialDelaySeconds: 5
             periodSeconds: 10
@@ -185,10 +170,7 @@ spec:
           resources:
             {{- toYaml .Values.api.resources | nindent 12 }}
           startupProbe:
-            exec:
-              command:
-                - cat
-                - /app/.probes/startup
+            {{- include "powersync-helm-chart-demo.probeHandler" (dict "root" . "file" "startup" "httpPath" "startup") | nindent 12 }}
             failureThreshold: 200
             initialDelaySeconds: 1
             periodSeconds: 1
